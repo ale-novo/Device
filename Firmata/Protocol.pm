@@ -110,6 +110,12 @@ our $ACCELSTEPPER_INTERFACES = {
   #FOUR_WIRE                   => 4,
 };
 
+our $ACCELSTEPPER_STEP = {
+  WHOLE                       => 0,
+  HALF                        => 1,
+  QUARTER                     => 2,
+};
+
 our $ENCODER_COMMANDS = {
   ENCODER_ATTACH              => 0,
   ENCODER_REPORT_POSITION     => 1,
@@ -1005,20 +1011,14 @@ sub handle_stepper_response {
 }
 
 sub packet_accelstepper_config {
-  my ( $self, $stepperNum, $interface, $directionPin, $stepPin ) = @_;
+  my ( $self, $stepperNum, $interface, $step, $enable, $directionPin, $stepPin ) = @_;
 
-  die "invalid stepper interface ".$interface unless defined ($ACCELSTEPPER_INTERFACES->{$interface});
-  ################
+  die "invalid accelstepper interface ".$interface unless defined ($ACCELSTEPPER_INTERFACES->{$interface});
+  die "invalid accelstepper step".$step unless defined ($ACCELSTEPPER_STEP->{$step});
 
-  my $wire = 1; # wire count 1=driver
-  my $step = 0; # step 0=full; 1=half; 2=quarter
-  my $enable = 0; # has enable pin 0=no; 1=yes
-
-  my $i = $wire << 4 | $step << 1 | $enable;
-
+  my $i = $ACCELSTEPPER_INTERFACES->{$interface} << 4 | $ACCELSTEPPER_STEP->{$step} << 1 | $enable;
   printf "interface %#07b %d 0x%X\n", $i, $i, $i;
 
-  # 001 (driver) + 000 (whole step) + 0 (no enable) = 0x60
   my @configdata = ($stepperNum, $i);
 
   push @configdata, $directionPin;
