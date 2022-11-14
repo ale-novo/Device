@@ -1028,6 +1028,15 @@ sub packet_accelstepper_config {
   return $packet;
 }
 
+sub packet_accelstepper_step {
+  my ( $self, $stepperNum, $numSteps ) = @_;
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP},@stepdata, pack_as_7bit($numSteps & 0xFF, ($numSteps & 0xFF00)>>8, ($numSteps & 0xFF0000)>>16,($numSteps & 0xFF000000)>>24));
+  return $packet;
+}
+
 sub packet_encoder_attach {
   my ( $self,$encoderNum, $pinA, $pinB ) = @_;
   my $packet = $self->packet_sysex_command('ENCODER_DATA', $ENCODER_COMMANDS->{ENCODER_ATTACH}, $encoderNum, $pinA, $pinB);

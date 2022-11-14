@@ -951,10 +951,10 @@ sub accelstepper_config {
   return $self->{io}->data_write($self->{protocol}->packet_accelstepper_config( $stepperNum, $interface, $step, $enable, $directionPin, $stepPin));
 }
 
-#sub accelstepper_step {
-#  my ( $self, $stepperNum, $direction, $numSteps, $stepSpeed, $accel, $decel ) = @_;
-# return $self->{io}->data_write($self->{protocol}->packet_stepper_step( $stepperNum, $direction, $numSteps, $stepSpeed, $accel, $decel ));
-#}
+sub accelstepper_step {
+  my ( $self, $stepperNum, $numSteps ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_step( $stepperNum, $numSteps ));
+}
 
 sub encoder_attach {
   my ( $self, $encoderNum, $pinA, $pinB ) = @_;
