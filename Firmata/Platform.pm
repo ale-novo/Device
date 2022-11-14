@@ -956,6 +956,31 @@ sub accelstepper_step {
  return $self->{io}->data_write($self->{protocol}->packet_accelstepper_step( $stepperNum, $numSteps ));
 }
 
+sub accelstepper_to {
+  my ( $self, $stepperNum, $position ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_to( $stepperNum, $position ));
+}
+
+sub accelstepper_zero {
+  my ( $self, $stepperNum ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_zero( $stepperNum ));
+}
+
+sub accelstepper_enable {
+  my ( $self, $stepperNum, $state ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_enable( $stepperNum, $state ));
+}
+
+sub accelstepper_stop {
+  my ( $self, $stepperNum ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_stop( $stepperNum ));
+}
+
+sub accelstepper_report {
+  my ( $self, $stepperNum ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_report( $stepperNum ));
+}
+
 sub encoder_attach {
   my ( $self, $encoderNum, $pinA, $pinB ) = @_;
   die "unsupported mode 'ENCODER' for pin '".$pinA."'" unless $self->is_supported_mode($pinA,PIN_ENCODER);

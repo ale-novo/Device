@@ -1024,7 +1024,7 @@ sub packet_accelstepper_config {
   push @configdata, $directionPin;
   push @configdata, $stepPin;
 
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG},@configdata);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG}, @configdata);
   return $packet;
 }
 
@@ -1032,8 +1032,47 @@ sub packet_accelstepper_step {
   my ( $self, $stepperNum, $numSteps ) = @_;
 
   my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP}, @stepdata, pack_as_7bit($numSteps & 0xFF, ($numSteps & 0xFF00)>>8, ($numSteps & 0xFF0000)>>16,($numSteps & 0xFF000000)>>24));
+  return $packet;
+}
 
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP},@stepdata, pack_as_7bit($numSteps & 0xFF, ($numSteps & 0xFF00)>>8, ($numSteps & 0xFF0000)>>16,($numSteps & 0xFF000000)>>24));
+sub packet_accelstepper_to {
+  my ( $self, $stepperNum, $position ) = @_;
+
+  my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_TO}, @stepdata, pack_as_7bit($position & 0xFF, ($position & 0xFF00)>>8, ($position & 0xFF0000)>>16,($position & 0xFF000000)>>24));
+  return $packet;
+}
+
+sub packet_accelstepper_zero {
+  my ( $self, $stepperNum ) = @_;
+
+  my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ZERO}, @stepdata);
+  return $packet;
+}
+
+sub packet_accelstepper_enable {
+  my ( $self, $stepperNum, $state ) = @_;
+
+  my @stepdata = ($stepperNum, $state);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ENABLE}, @stepdata);
+  return $packet;
+}
+
+sub packet_accelstepper_stop {
+  my ( $self, $stepperNum ) = @_;
+
+  my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STOP}, @stepdata);
+  return $packet;
+}
+
+sub packet_accelstepper_report {
+  my ( $self, $stepperNum ) = @_;
+
+  my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_REPORT}, @stepdata);
   return $packet;
 }
 
