@@ -944,6 +944,18 @@ sub stepper_step {
   return $self->{io}->data_write($self->{protocol}->packet_stepper_step( $stepperNum, $direction, $numSteps, $stepSpeed, $accel, $decel ));
 }
 
+sub accelstepper_config {
+  my ( $self, $stepperNum, $interface, $directionPin, $stepPin) = @_;
+  die "unsupported mode 'STEPPER' for pin '".$directionPin."'" unless $self->is_supported_mode($directionPin,PIN_STEPPER);
+  die "unsupported mode 'STEPPER' for pin '".$stepPin."'" unless $self->is_supported_mode($stepPin,PIN_STEPPER);
+  return $self->{io}->data_write($self->{protocol}->packet_accelstepper_config( $stepperNum, $interface, $directionPin, $stepPin));
+}
+
+#sub accelstepper_step {
+#  my ( $self, $stepperNum, $direction, $numSteps, $stepSpeed, $accel, $decel ) = @_;
+# return $self->{io}->data_write($self->{protocol}->packet_stepper_step( $stepperNum, $direction, $numSteps, $stepSpeed, $accel, $decel ));
+#}
+
 sub encoder_attach {
   my ( $self, $encoderNum, $pinA, $pinB ) = @_;
   die "unsupported mode 'ENCODER' for pin '".$pinA."'" unless $self->is_supported_mode($pinA,PIN_ENCODER);

@@ -85,6 +85,31 @@ our $STEPPER_INTERFACES = {
   FOUR_WIRE                   => 4,
 };
 
+our $ACCELSTEPPER_COMMANDS = {
+  STEPPER_CONFIG              => 0,
+  STEPPER_ZERO                => 1,
+  STEPPER_STEP                => 2,
+  STEPPER_TO                  => 3,
+  STEPPER_ENABLE              => 4,
+  STEPPER_STOP                => 5,
+  STEPPER_REPORT              => 6,
+  STEPPER_LIMIT               => 7,
+  STEPPER_ACCEL               => 8,
+  STEPPER_SPEED               => 9,
+  STEPPER_MOVE                => 0x0A,
+  #STEPPER_MULTICONFIG         => 0x20,
+  #STEPPER_MULTITO             => 0x21,
+  #STEPPER_MULTISTOP           => 0x23,
+  #STEPPER_MULTIMOVE           => 0x24,
+
+};
+
+our $ACCELSTEPPER_INTERFACES = {
+  DRIVER                      => 1,
+  #TWO_WIRE                    => 2,
+  #FOUR_WIRE                   => 4,
+};
+
 our $ENCODER_COMMANDS = {
   ENCODER_ATTACH              => 0,
   ENCODER_REPORT_POSITION     => 1,
@@ -971,11 +996,37 @@ sub handle_stepper_response {
   my ( $self, $sysex_data ) = @_;
 
   my $stepperNum = shift @$sysex_data;
+
+  printf "stepper_response %d\n", $stepperNum;
+
   return {
     stepperNum => $stepperNum,
   };
 }
 
+sub packet_accelstepper_config {
+  my ( $self, $stepperNum, $interface, $directionPin, $stepPin ) = @_;
+
+  die "invalid stepper interface ".$interface unless defined ($ACCELSTEPPER_INTERFACES->{$interface});
+  ################
+
+  my $wire = 1; # wire count 1=driver
+  my $step = 0; # step 0=full; 1=half; 2=quarter
+  my $enable = 0; # has enable pin 0=no; 1=yes
+
+  my $i = $wire << 4 | $step << 1 | $enable;
+
+  printf "interface %#07b %d 0x%X\n", $i, $i, $i;
+
+  # 001 (driver) + 000 (whole step) + 0 (no enable) = 0x60
+  my @configdata = ($stepperNum, $i);
+
+  push @configdata, $directionPin;
+  push @configdata, $stepPin;
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG},@configdata);
+  return $packet;
+}
 
 sub packet_encoder_attach {
   my ( $self,$encoderNum, $pinA, $pinB ) = @_;
