@@ -9,6 +9,7 @@ Device::Firmata::Protocol - Firmata protocol implementation
 use strict;
 use warnings;
 use vars qw/ $MIDI_DATA_SIZES /;
+use POSIX;
 
 use constant {
   MIDI_COMMAND                => 0x80,
@@ -16,7 +17,7 @@ use constant {
   MIDI_PARSE_SYSEX            => 1,
   MIDI_START_SYSEX            => 0xf0,
   MIDI_END_SYSEX              => 0xf7,
-  MAX_PROTOCOL_VERSION        => 'V_2_05',  # highest Firmata protocol version currently implemented
+  MAX_PROTOCOL_VERSION        => 'V_2_06',  # highest Firmata protocol version currently implemented
 };
 
 use Device::Firmata::Constants qw/ :all /;
@@ -97,17 +98,18 @@ our $ACCELSTEPPER_COMMANDS = {
   STEPPER_ACCEL               => 8,
   STEPPER_SPEED               => 9,
   STEPPER_MOVE                => 0x0A,
-  #STEPPER_MULTICONFIG         => 0x20,
-  #STEPPER_MULTITO             => 0x21,
-  #STEPPER_MULTISTOP           => 0x23,
-  #STEPPER_MULTIMOVE           => 0x24,
+  STEPPER_MULTICONFIG         => 0x20,
+  STEPPER_MULTITO             => 0x21,
+  STEPPER_MULTISTOP           => 0x23,
+  STEPPER_MULTIMOVE           => 0x24,
 
 };
 
 our $ACCELSTEPPER_INTERFACES = {
   DRIVER                      => 1,
-  #TWO_WIRE                    => 2,
-  #FOUR_WIRE                   => 4,
+  TWO_WIRE                    => 2,
+  THREE_WIRE                  => 3,
+  FOUR_WIRE                   => 4,
 };
 
 our $ACCELSTEPPER_STEP = {
@@ -358,6 +360,11 @@ sub sysex_parse {
 
         $command == $protocol_commands->{STEPPER_DATA} and do {
           $return_data = $self->handle_stepper_response($sysex_data);
+          last;
+        };
+
+        $command == $protocol_commands->{ACCELSTEPPER_DATA} and do {
+          $return_data = $self->handle_accelstepper_response($sysex_data);
           last;
         };
 
@@ -1002,11 +1009,37 @@ sub handle_stepper_response {
   my ( $self, $sysex_data ) = @_;
 
   my $stepperNum = shift @$sysex_data;
-
-  printf "stepper_response %d\n", $stepperNum;
-
   return {
     stepperNum => $stepperNum,
+  };
+}
+
+sub handle_accelstepper_response {
+  my ( $self, $sysex_data ) = @_;
+
+  my $command = shift @$sysex_data;
+  my $number = shift @$sysex_data;
+
+  if ( defined $command ) {
+    if ( $command == 10 ) {
+      my @data = unpack_from_7bit(@$sysex_data);
+      my $position = decode32BitSignedInteger(@$sysex_data);
+      printf "Stepper %d move complete; Position: %d\n", $number, $position;
+    };
+
+    if ( $command == 6 ) {
+      my @data = unpack_from_7bit(@$sysex_data);
+      my $position = decode32BitSignedInteger(@$sysex_data);
+      printf "Stepper %d report position; Position: %d\n", $number, $position;
+    };
+
+    if ( $command == 36 ) {
+      printf "MultiStepper %d move complete\n", $number;
+    };
+  };
+
+  return {
+    stepperNum => $number,
   };
 }
 
@@ -1030,9 +1063,11 @@ sub packet_accelstepper_config {
 
 sub packet_accelstepper_step {
   my ( $self, $stepperNum, $numSteps ) = @_;
+  printf "numSteps $numSteps\n";
 
   my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP}, @stepdata, pack_as_7bit($numSteps & 0xFF, ($numSteps & 0xFF00)>>8, ($numSteps & 0xFF0000)>>16,($numSteps & 0xFF000000)>>24));
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP}, @stepdata, encode32BitSignedInteger($numSteps));
+
   return $packet;
 }
 
@@ -1040,7 +1075,8 @@ sub packet_accelstepper_to {
   my ( $self, $stepperNum, $position ) = @_;
 
   my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_TO}, @stepdata, pack_as_7bit($position & 0xFF, ($position & 0xFF00)>>8, ($position & 0xFF0000)>>16,($position & 0xFF000000)>>24));
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_TO}, @stepdata, encode32BitSignedInteger($position));
+
   return $packet;
 }
 
@@ -1073,6 +1109,24 @@ sub packet_accelstepper_report {
 
   my @stepdata = ($stepperNum);
   my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_REPORT}, @stepdata);
+  return $packet;
+}
+
+sub packet_accelstepper_accel {
+  my ( $self, $stepperNum, $acceleration ) = @_;
+
+  my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ACCEL}, @stepdata, encodeCustomFloat($acceleration));
+
+  return $packet;
+}
+
+sub packet_accelstepper_speed {
+  my ( $self, $stepperNum, $speed ) = @_;
+
+  my @stepdata = ($stepperNum);
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_SPEED}, @stepdata, encodeCustomFloat($speed));
+
   return $packet;
 }
 
@@ -1354,6 +1408,7 @@ sub push_array_as_two_7bit {
 }
 
 sub pack_as_7bit {
+  printf "pack_as_7bit\n";
   my @data = @_;
   my @outdata;
   my $numBytes    = @data;
@@ -1366,6 +1421,7 @@ sub pack_as_7bit {
     printf "%b, %b, %d\n",$data[$pos],$out,$shift if ($out >> 7 > 0);
     $out |= ( $data[ $pos + 1 ] << ( 8 - $shift ) ) & 0x7F if ( $shift > 1 && $pos < $numBytes-1 );
     push( @outdata, $out );
+    printf "push outdata @outdata out $out\n";
   }
   return @outdata;
 }
@@ -1385,6 +1441,98 @@ sub unpack_from_7bit {
   }
   return @outdata;
 }
+
+sub encode32BitSignedInteger {
+  my ( $data ) = @_;
+  my @outdata;
+
+  my $abs_data = abs($data);
+
+  printf "encode32BitSignedInteger %s\n", $data;
+
+  push( @outdata, ($abs_data & 0x7F));
+  push( @outdata, (($abs_data >> 7) & 0x7F));
+  push( @outdata, (($abs_data >> 14) & 0x7F));
+  push( @outdata, (($abs_data >> 21) & 0x7F));
+  push( @outdata, (($abs_data >> 28) & 0x07));
+
+  if ( $data < 0 ) {
+    $outdata[-1] |= 0x08;
+  };
+
+  printf "encode32BitSignedInteger @outdata \n";
+  return @outdata;
+
+};
+
+sub decode32BitSignedInteger {
+  my @data = @_;
+
+  my $result = ($data[0] & 0x7F) |
+    (($data[1] & 0x7F) << 7) |
+    (($data[2] & 0x7F) << 14) |
+    (($data[3] & 0x7F) << 21) |
+    (($data[4] & 0x07) << 28);
+
+
+  if ($data[4] >> 3) {
+    $result *= -1;
+  }
+
+  printf "decode32BitSignedInteger @data, result $result\n";
+  return $result;
+};
+
+sub encodeCustomFloat {
+  my ( $data ) = @_;
+  my $sign = 0;
+  my $MAX_SIGNIFICAND = (2**23);
+  my @encoded;
+
+  printf "encodeCustomFloat $data\n";
+
+  printf "max_sig $MAX_SIGNIFICAND\n";
+
+  if ( $data < 0 ) {
+    $sign = 1;
+  };
+  printf "sign $sign\n";
+
+  my $abs_data = abs($data);
+  printf "abs $abs_data\n";
+
+  my $base10 = floor(log($abs_data)/log(10));
+  printf "base10 $base10\n";
+
+  my $exponent = 0 + $base10;
+
+  $abs_data /= (10**$base10);
+
+  while ( $abs_data =~ /^\d*\.\d*$/ && $abs_data < $MAX_SIGNIFICAND) {
+    $exponent -= 1;
+    $abs_data *= 10;
+  };
+
+  while ( $abs_data > $MAX_SIGNIFICAND) {
+    $exponent += 1;
+    $abs_data /= 10;
+  };
+
+  my $int_data = int($abs_data);
+  printf "trunc $int_data\n";
+
+  $exponent += 11;
+  printf "exponent $exponent\n";
+
+  push( @encoded, ($int_data & 0x7F));
+  push( @encoded, (($int_data >> 7) & 0x7F));
+  push( @encoded, (($int_data >> 14) & 0x7F));
+  push ( @encoded, ( ($int_data >> 21) & 0x03 | ($exponent & 0x0F) << 2 | ($sign & 0x01) << 6 ) );
+
+  printf "encoded @encoded\n";
+  return @encoded;
+
+};
 
 =head2 get_max_compatible_protocol_version
 
