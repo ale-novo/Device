@@ -74,6 +74,7 @@ use Device::Firmata::Base
   i2c_observer                => undef,
   onewire_observer            => [],
   stepper_observer            => [],
+  accelstepper_observer       => [],
   encoder_observer            => [],
   serial_observer             => [],
   scheduler_observer          => undef,
@@ -139,23 +140,24 @@ sub detach {
   my $self = shift;
   delete $self->{io} if ($self->{io});
   delete $self->{protocol} if ($self->{protocol});
-  $self->{sysex_data}         = [];
-  $self->{analog_pins}        = [];
-  $self->{ports}              = [];
-  $self->{input_ports}        = [];
-  $self->{pins}               = {};
-  $self->{pin_modes}          = {};
-  $self->{digital_observer}   = [];
-  $self->{analog_observer}    = [];
-  $self->{sysex_observer}     = undef;
-  $self->{i2c_observer}       = undef;
-  $self->{onewire_observer}   = [];
-  $self->{stepper_observer}   = [];
-  $self->{encoder_observer}   = [];
-  $self->{serial_observer}    = [];
-  $self->{scheduler_observer} = undef;
-  $self->{tasks}              = [];
-  $self->{metadata}           = {};
+  $self->{sysex_data}            = [];
+  $self->{analog_pins}           = [];
+  $self->{ports}                 = [];
+  $self->{input_ports}           = [];
+  $self->{pins}                  = {};
+  $self->{pin_modes}             = {};
+  $self->{digital_observer}      = [];
+  $self->{analog_observer}       = [];
+  $self->{sysex_observer}        = undef;
+  $self->{i2c_observer}          = undef;
+  $self->{onewire_observer}      = [];
+  $self->{stepper_observer}      = [];
+  $self->{accelstepper_observer} = [];
+  $self->{encoder_observer}      = [];
+  $self->{serial_observer}       = [];
+  $self->{scheduler_observer}    = undef;
+  $self->{tasks}                 = [];
+  $self->{metadata}              = {};
 }
 
 =head2 close ( )
@@ -179,22 +181,23 @@ Try to reset Firmata device. Will only work if Firmata device is connected.
 sub system_reset {
   my $self = shift;
   $self->{io}->data_write($self->{protocol}->message_prepare( SYSTEM_RESET => 0 ));
-  $self->{sysex_data}         = [];
-  $self->{analog_pins}        = [];
-  $self->{ports}              = [];
-  $self->{pins}               = {};
-  $self->{pin_modes}          = {};
-  $self->{digital_observer}   = [];
-  $self->{analog_observer}    = [];
-  $self->{sysex_observer}     = undef;
-  $self->{i2c_observer}       = undef;
-  $self->{onewire_observer}   = [];
-  $self->{stepper_observer}   = [];
-  $self->{encoder_observer}   = [];
-  $self->{serial_observer}    = [];
-  $self->{scheduler_observer} = undef;
-  $self->{tasks}              = [];
-  $self->{metadata}           = {};
+  $self->{sysex_data}            = [];
+  $self->{analog_pins}           = [];
+  $self->{ports}                 = [];
+  $self->{pins}                  = {};
+  $self->{pin_modes}             = {};
+  $self->{digital_observer}      = [];
+  $self->{analog_observer}       = [];
+  $self->{sysex_observer}        = undef;
+  $self->{i2c_observer}          = undef;
+  $self->{onewire_observer}      = [];
+  $self->{stepper_observer}      = [];
+  $self->{accelstepper_observer} = [];
+  $self->{encoder_observer}      = [];
+  $self->{serial_observer}       = [];
+  $self->{scheduler_observer}    = undef;
+  $self->{tasks}                 = [];
+  $self->{metadata}              = {};
 }
 
 =head2 messages_handle ( messages )
@@ -441,6 +444,15 @@ sub sysex_handle {
     $sysex_message->{command_str} eq 'STEPPER_DATA' and do {
       my $stepperNum = $data->{stepperNum};
       my $observer = $self->{stepper_observer}[$stepperNum];
+      if (defined $observer) {
+        $observer->{method}( $stepperNum, $observer->{context} );
+      };
+      last;
+    };
+
+    $sysex_message->{command_str} eq 'ACCELSTEPPER_DATA' and do {
+      my $stepperNum = $data->{stepperNum};
+      my $observer = $self->{accelstepper_observer}[$stepperNum];
       if (defined $observer) {
         $observer->{method}( $stepperNum, $observer->{context} );
       };
@@ -981,6 +993,16 @@ sub accelstepper_report {
  return $self->{io}->data_write($self->{protocol}->packet_accelstepper_report( $stepperNum ));
 }
 
+sub accelstepper_accel {
+  my ( $self, $stepperNum, $acceleration ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_accel( $stepperNum, $acceleration ));
+}
+
+sub accelstepper_speed {
+  my ( $self, $stepperNum, $speed ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_accelstepper_speed( $stepperNum, $speed ));
+}
+
 sub encoder_attach {
   my ( $self, $encoderNum, $pinA, $pinB ) = @_;
   die "unsupported mode 'ENCODER' for pin '".$pinA."'" unless $self->is_supported_mode($pinA,PIN_ENCODER);
@@ -1146,6 +1168,16 @@ sub observe_stepper {
   my ( $self, $stepperNum, $observer, $context ) = @_;
 #TODO validation?  die "unsupported mode 'STEPPER' for pin '".$pin."'" unless ($self->is_supported_mode($pin,PIN_STEPPER));
   $self->{stepper_observer}[$stepperNum] = {
+      method  => $observer,
+      context => $context,
+    };
+  return 1;
+}
+
+sub observe_accelstepper {
+  my ( $self, $stepperNum, $observer, $context ) = @_;
+#TODO validation?  die "unsupported mode 'STEPPER' for pin '".$pin."'" unless ($self->is_supported_mode($pin,PIN_STEPPER));
+  $self->{accelstepper_observer}[$stepperNum] = {
       method  => $observer,
       context => $context,
     };
