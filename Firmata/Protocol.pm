@@ -1054,8 +1054,8 @@ sub packet_accelstepper_config {
 
   my @configdata = ($stepperNum, $i);
 
-  push @configdata, $directionPin;
   push @configdata, $stepPin;
+  push @configdata, $directionPin;
 
   my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG}, @configdata);
   return $packet;
