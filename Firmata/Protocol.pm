@@ -1130,6 +1130,53 @@ sub packet_accelstepper_speed {
   return $packet;
 }
 
+sub packet_multistepper_to {
+  my ( $self, $groupNum, @positions ) = @_;
+
+  my @groupdata = ($groupNum);
+  my @concat_pos;
+
+  if ($groupNum < 0 || $groupNum > 5) {
+    printf "Invalid groupNum: $groupNum Expected groupNum between 0-5\n";
+  }
+
+  #  ...positions.reduce((a, b) => a.concat(...encode32BitSignedInteger(b)), []),
+  foreach (@positions) {
+    push( @concat_pos,  encode32BitSignedInteger($_))
+  }
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTITO}, @groupdata, @concat_pos);
+
+  return $packet;
+}
+  
+sub packet_multistepper_stop {
+  my ( $self, $groupNum ) = @_;
+
+  my @groupdata = ($groupNum);
+
+  if ($groupNum < 0 || $groupNum > 5) {
+    printf "Invalid groupNum: $groupNum Expected groupNum between 0-5\n";
+  }
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTISTOP}, @groupdata);
+  return $packet;
+}
+
+sub packet_multistepper_config {
+  my ( $self, $groupNum, @devices ) = @_;
+
+  my @groupdata = ($groupNum);
+
+  if ($groupNum < 0 || $groupNum > 9) {
+    printf "Invalid groupNum: $groupNum Expected groupNum between 0-9\n";
+  }
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTICONFIG}, @groupdata, @devices);
+
+  return $packet;
+}
+
 sub packet_encoder_attach {
   my ( $self,$encoderNum, $pinA, $pinB ) = @_;
   my $packet = $self->packet_sysex_command('ENCODER_DATA', $ENCODER_COMMANDS->{ENCODER_ATTACH}, $encoderNum, $pinA, $pinB);

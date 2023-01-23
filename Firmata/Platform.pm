@@ -1003,6 +1003,21 @@ sub accelstepper_speed {
  return $self->{io}->data_write($self->{protocol}->packet_accelstepper_speed( $stepperNum, $speed ));
 }
 
+sub multistepper_to {
+  my ( $self, $groupNum, @positions ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_multistepper_to( $groupNum, @positions ));
+}
+
+sub multistepper_stop {
+  my ( $self, $groupNum ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_multistepper_stop( $groupNum ));
+}
+
+sub multistepper_config {
+  my ( $self, $groupNum, @devices ) = @_;
+ return $self->{io}->data_write($self->{protocol}->packet_multistepper_config( $groupNum, @devices ));
+}
+  
 sub encoder_attach {
   my ( $self, $encoderNum, $pinA, $pinB ) = @_;
   die "unsupported mode 'ENCODER' for pin '".$pinA."'" unless $self->is_supported_mode($pinA,PIN_ENCODER);
