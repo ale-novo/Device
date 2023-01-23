@@ -1043,92 +1043,143 @@ sub handle_accelstepper_response {
   };
 }
 
-sub packet_accelstepper_config {
-  my ( $self, $stepperNum, $interface, $step, $enable, $directionPin, $stepPin ) = @_;
+# AccelStepper
 
-  die "invalid accelstepper interface ".$interface unless defined ($ACCELSTEPPER_INTERFACES->{$interface});
-  die "invalid accelstepper step".$step unless defined ($ACCELSTEPPER_STEP->{$step});
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $speed {number} speed Desired speed or maxSpeed in steps per second
 
-  my $i = $ACCELSTEPPER_INTERFACES->{$interface} << 4 | $ACCELSTEPPER_STEP->{$step} << 1 | $enable;
-  printf "interface %#07b %d 0x%X\n", $i, $i, $i;
+sub packet_accelstepper_speed {
+  my ( $self, $stepperNum, $speed ) = @_;
 
-  my @configdata = ($stepperNum, $i);
-
-  push @configdata, $stepPin;
-  push @configdata, $directionPin;
-
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG}, @configdata);
-  return $packet;
-}
-
-sub packet_accelstepper_step {
-  my ( $self, $stepperNum, $numSteps ) = @_;
-  printf "numSteps $numSteps\n";
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
 
   my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP}, @stepdata, encode32BitSignedInteger($numSteps));
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_SPEED}, @stepdata, encodeCustomFloat($speed));
 
   return $packet;
 }
 
-sub packet_accelstepper_to {
-  my ( $self, $stepperNum, $position ) = @_;
-
-  my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_TO}, @stepdata, encode32BitSignedInteger($position));
-
-  return $packet;
-}
-
-sub packet_accelstepper_zero {
-  my ( $self, $stepperNum ) = @_;
-
-  my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ZERO}, @stepdata);
-  return $packet;
-}
-
-sub packet_accelstepper_enable {
-  my ( $self, $stepperNum, $state ) = @_;
-
-  my @stepdata = ($stepperNum, $state);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ENABLE}, @stepdata);
-  return $packet;
-}
-
-sub packet_accelstepper_stop {
-  my ( $self, $stepperNum ) = @_;
-
-  my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STOP}, @stepdata);
-  return $packet;
-}
-
-sub packet_accelstepper_report {
-  my ( $self, $stepperNum ) = @_;
-
-  my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_REPORT}, @stepdata);
-  return $packet;
-}
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $acceleration {number} acceleration Desired acceleration in steps per sec^2
 
 sub packet_accelstepper_accel {
   my ( $self, $stepperNum, $acceleration ) = @_;
 
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
   my @stepdata = ($stepperNum);
+
   my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ACCEL}, @stepdata, encodeCustomFloat($acceleration));
 
   return $packet;
 }
 
-sub packet_accelstepper_speed {
-  my ( $self, $stepperNum, $speed ) = @_;
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $state {boolean} [enabled]
 
-  my @stepdata = ($stepperNum);
-  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_SPEED}, @stepdata, encodeCustomFloat($speed));
+sub packet_accelstepper_enable {
+  my ( $self, $stepperNum, $state ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum, $state);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ENABLE}, @stepdata);
 
   return $packet;
 }
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $numSteps {number} steps Number of steps to make
+
+sub packet_accelstepper_step {
+  my ( $self, $stepperNum, $numSteps ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP}, @stepdata, encode32BitSignedInteger($numSteps));
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+
+sub packet_accelstepper_zero {
+  my ( $self, $stepperNum ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ZERO}, @stepdata);
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $position {number} position Desired position
+
+sub packet_accelstepper_to {
+  my ( $self, $stepperNum, $position ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_TO}, @stepdata, encode32BitSignedInteger($position));
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+
+sub packet_accelstepper_stop {
+  my ( $self, $stepperNum ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STOP}, @stepdata);
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+
+sub packet_accelstepper_report {
+  my ( $self, $stepperNum ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_REPORT}, @stepdata);
+
+  return $packet;
+}
+
+# $groupNum {number} groupNum Group number for the multiSteppers (range 0-4)
+# @positions array {number} positions array of absolute stepper positions
 
 sub packet_multistepper_to {
   my ( $self, $groupNum, @positions ) = @_;
@@ -1136,8 +1187,12 @@ sub packet_multistepper_to {
   my @groupdata = ($groupNum);
   my @concat_pos;
 
-  if ($groupNum < 0 || $groupNum > 5) {
-    printf "Invalid groupNum: $groupNum Expected groupNum between 0-5\n";
+  if ($groupNum < 0 || $groupNum > 4) {
+    printf "Invalid groupNum: $groupNum Expected groupNum between 0-4\n";
+  }
+
+  if (@positions < 0 || @positions > 9) {
+    die "Invalid positions: @positions Expected positions number between 0-9\n";
   }
 
   #  ...positions.reduce((a, b) => a.concat(...encode32BitSignedInteger(b)), []),
@@ -1149,33 +1204,132 @@ sub packet_multistepper_to {
 
   return $packet;
 }
-  
+
+# $groupNum {number} groupNum Group number for the multiSteppers (range 0-4)
+
 sub packet_multistepper_stop {
   my ( $self, $groupNum ) = @_;
 
   my @groupdata = ($groupNum);
 
-  if ($groupNum < 0 || $groupNum > 5) {
-    printf "Invalid groupNum: $groupNum Expected groupNum between 0-5\n";
+  if ($groupNum < 0 || $groupNum > 4) {
+    die "Invalid groupNum: $groupNum Expected groupNum between 0-4\n";
   }
 
   my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTISTOP}, @groupdata);
+
   return $packet;
 }
+
+# $groupNum {number} groupNum: Group number for the multiSteppers (range 0-4)
+# @devices array {number} devices: array of accelStepper device numbers in group
 
 sub packet_multistepper_config {
   my ( $self, $groupNum, @devices ) = @_;
 
   my @groupdata = ($groupNum);
 
-  if ($groupNum < 0 || $groupNum > 9) {
-    printf "Invalid groupNum: $groupNum Expected groupNum between 0-9\n";
+  if ($groupNum < 0 || $groupNum > 4) {
+    die "Invalid groupNum: $groupNum Expected groupNum between 0-4\n";
+  }
+
+  if (@devices < 0 || @devices > 9) {
+    die "Invalid devices: @devices Expected devices number between 0-9\n";
   }
 
   my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTICONFIG}, @groupdata, @devices);
 
   return $packet;
 }
+
+# $stepperNum: stepper id: 0, 1, 2.. 9
+# $interface:
+#   'DRIVER': use $pin1: step, $pin2: dir.
+#   'TWO_WIRE': use $pin1, $pin2.
+#   'THREE_WIRE': use $pin1, $pin2, $pin3.
+#   'FOUR_WIRE': use $pin1, $pin2, $pin3, $pin4.
+# $step: 'WHOLE', 'HALF', 'QUARTER' steps.
+# $pin1, $pin2: mandatory.
+# $pin3, $pin4: optional depending $interface.
+# $enablePin: optional pin for driver with enable pin.
+# $invertPins: optional array with pins to invert.
+
+sub packet_accelstepper_config {
+  my ( $self, $stepperNum, $interface, $step, $pin1, $pin2, $pin3, $pin4, $enablePin, @invertPins ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  die "invalid accelstepper interface".$interface unless defined ($ACCELSTEPPER_INTERFACES->{$interface});
+
+  die "invalid accelstepper step".$step unless defined ($ACCELSTEPPER_STEP->{$step});
+
+  my $iface = (($ACCELSTEPPER_INTERFACES->{$interface} & 0x07) << 4) | (($ACCELSTEPPER_STEP->{$step} & 0x07) << 1) ;
+
+  if (defined $enablePin) {
+    $iface = $iface | 0x01;
+  }
+
+  my @configdata = ($stepperNum, $iface);
+
+  if (!defined $pin1) {
+    die "pin1 not defined\n";
+  }
+  push @configdata, $pin1;
+
+  if (!defined $pin2) {
+    die "pin1 not defined\n";
+  }
+  push @configdata, $pin2;
+
+  if (defined $pin3) {
+    push @configdata, $pin3;
+  }
+
+  if (defined $pin4) {
+    push @configdata, $pin4;
+  }
+
+  if (defined $enablePin) {
+    push @configdata, $enablePin;
+  }
+
+  my $pinsToInvert = 0x00;
+
+  if (@invertPins > 0) {
+
+    my %invert = map { $_ => 1 } @invertPins;
+
+    if(exists($invert{$pin1})) {
+      $pinsToInvert |= 0x01;
+    }
+
+    if(exists($invert{$pin2})) {
+      $pinsToInvert |= 0x02;
+    }
+
+    if((defined $pin3) && exists($invert{$pin3})) {
+      $pinsToInvert |= 0x04;
+    }
+
+    if((defined $pin4) && exists($invert{$pin4})) {
+      $pinsToInvert |= 0x08;
+    }
+
+    if((defined $enablePin) && exists($invert{$enablePin})) {
+      $pinsToInvert |= 0x10;
+    }
+  }
+
+  push @configdata, $pinsToInvert;
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG}, @configdata);
+
+  return $packet;
+}
+
+###
 
 sub packet_encoder_attach {
   my ( $self,$encoderNum, $pinA, $pinB ) = @_;
