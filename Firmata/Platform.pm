@@ -957,10 +957,10 @@ sub stepper_step {
 }
 
 sub accelstepper_config {
-  my ( $self, $stepperNum, $interface, $step, $enable, $directionPin, $stepPin) = @_;
-  die "unsupported mode 'STEPPER' for pin '".$directionPin."'" unless $self->is_supported_mode($directionPin,PIN_STEPPER);
-  die "unsupported mode 'STEPPER' for pin '".$stepPin."'" unless $self->is_supported_mode($stepPin,PIN_STEPPER);
-  return $self->{io}->data_write($self->{protocol}->packet_accelstepper_config( $stepperNum, $interface, $step, $enable, $directionPin, $stepPin));
+  my ( $self, $stepperNum, $interface, $step, $pin1, $pin2, $pin3, $pin4, $enablePin, @invertPins ) = @_;
+  die "unsupported mode 'STEPPER' for pin '".$pin2."'" unless $self->is_supported_mode($pin2,PIN_STEPPER);
+  die "unsupported mode 'STEPPER' for pin '".$pin1."'" unless $self->is_supported_mode($pin1,PIN_STEPPER);
+  return $self->{io}->data_write($self->{protocol}->packet_accelstepper_config( $stepperNum, $interface, $step, $pin1, $pin2, $pin3, $pin4, $enablePin, @invertPins ));
 }
 
 sub accelstepper_step {
