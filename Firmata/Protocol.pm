@@ -1495,8 +1495,6 @@ sub encode32BitSignedInteger {
 
   my $abs_data = abs($data);
 
-  printf "encode32BitSignedInteger %s\n", $data;
-
   push( @outdata, ($abs_data & 0x7F));
   push( @outdata, (($abs_data >> 7) & 0x7F));
   push( @outdata, (($abs_data >> 14) & 0x7F));
@@ -1536,47 +1534,46 @@ sub encodeCustomFloat {
   my $MAX_SIGNIFICAND = (2**23);
   my @encoded;
 
-  printf "encodeCustomFloat $data\n";
-
-  printf "max_sig $MAX_SIGNIFICAND\n";
-
   if ( $data < 0 ) {
     $sign = 1;
   };
-  printf "sign $sign\n";
 
-  my $abs_data = abs($data);
-  printf "abs $abs_data\n";
+  if ( $data != 0 ) {
 
-  my $base10 = floor(log($abs_data)/log(10));
-  printf "base10 $base10\n";
+    my $abs_data = abs($data);
 
-  my $exponent = 0 + $base10;
+    my $base10 = floor(log($abs_data)/log(10));
 
-  $abs_data /= (10**$base10);
+    my $exponent = 0 + $base10;
 
-  while ( $abs_data =~ /^\d*\.\d*$/ && $abs_data < $MAX_SIGNIFICAND) {
-    $exponent -= 1;
-    $abs_data *= 10;
+    $abs_data /= (10**$base10);
+
+    while ( $abs_data =~ /^\d*\.\d*$/ && $abs_data < $MAX_SIGNIFICAND) {
+      $exponent -= 1;
+      $abs_data *= 10;
+    };
+
+    while ( $abs_data > $MAX_SIGNIFICAND) {
+      $exponent += 1;
+      $abs_data /= 10;
+    };
+
+    my $int_data = int($abs_data);
+
+    $exponent += 11;
+
+    push( @encoded, ($int_data & 0x7F));
+    push( @encoded, (($int_data >> 7) & 0x7F));
+    push( @encoded, (($int_data >> 14) & 0x7F));
+    push ( @encoded, ( ($int_data >> 21) & 0x03 | ($exponent & 0x0F) << 2 | ($sign & 0x01) << 6 ) );
+
   };
 
-  while ( $abs_data > $MAX_SIGNIFICAND) {
-    $exponent += 1;
-    $abs_data /= 10;
+  if ($data == 0 ) {
+    push ( @encoded, (0,0,0,0));
   };
 
-  my $int_data = int($abs_data);
-  printf "trunc $int_data\n";
-
-  $exponent += 11;
-  printf "exponent $exponent\n";
-
-  push( @encoded, ($int_data & 0x7F));
-  push( @encoded, (($int_data >> 7) & 0x7F));
-  push( @encoded, (($int_data >> 14) & 0x7F));
-  push ( @encoded, ( ($int_data >> 21) & 0x03 | ($exponent & 0x0F) << 2 | ($sign & 0x01) << 6 ) );
-
-  printf "encoded @encoded\n";
+  printf "encodeCustomFloat @encoded\n";
   return @encoded;
 
 };
