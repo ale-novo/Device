@@ -1659,7 +1659,6 @@ sub encode32BitSignedInteger {
     $outdata[-1] |= 0x08;
   };
 
-  printf "encode32BitSignedInteger @outdata \n";
   return @outdata;
 
 };
@@ -1678,7 +1677,6 @@ sub decode32BitSignedInteger {
     $result *= -1;
   }
 
-  printf "decode32BitSignedInteger @data, result $result\n";
   return $result;
 };
 
@@ -1727,7 +1725,6 @@ sub encodeCustomFloat {
     push ( @encoded, (0,0,0,0));
   };
 
-  printf "encodeCustomFloat @encoded\n";
   return @encoded;
 
 };
