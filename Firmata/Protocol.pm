@@ -1019,17 +1019,18 @@ sub handle_accelstepper_response {
 
   my $command = shift @$sysex_data;
   my $number = shift @$sysex_data;
+  my $position = 0;
 
   if ( defined $command ) {
     if ( $command == 10 ) {
       my @data = unpack_from_7bit(@$sysex_data);
-      my $position = decode32BitSignedInteger(@$sysex_data);
+      $position = decode32BitSignedInteger(@$sysex_data);
       printf "Stepper %d move complete; Position: %d\n", $number, $position;
     };
 
     if ( $command == 6 ) {
       my @data = unpack_from_7bit(@$sysex_data);
-      my $position = decode32BitSignedInteger(@$sysex_data);
+      $position = decode32BitSignedInteger(@$sysex_data);
       printf "Stepper %d report position; Position: %d\n", $number, $position;
     };
 
@@ -1040,6 +1041,7 @@ sub handle_accelstepper_response {
 
   return {
     stepperNum => $number,
+    position => $position,
   };
 }
 

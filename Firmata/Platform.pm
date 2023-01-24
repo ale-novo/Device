@@ -452,9 +452,10 @@ sub sysex_handle {
 
     $sysex_message->{command_str} eq 'ACCELSTEPPER_DATA' and do {
       my $stepperNum = $data->{stepperNum};
+      my $position = $data->{position};
       my $observer = $self->{accelstepper_observer}[$stepperNum];
       if (defined $observer) {
-        $observer->{method}( $stepperNum, $observer->{context} );
+        $observer->{method}( $stepperNum, $position, $observer->{context} );
       };
       last;
     };
