@@ -380,6 +380,7 @@ use constant (
       SERVO_CONFIG             => 0x70, # set max angle, minPulse, maxPulse, freq
       STRING_DATA              => 0x71, # a string message with 14-bits per char
       STEPPER_DATA             => 0x72, # control a stepper motor
+      ACCELSTEPPER_DATA        => 0x62, # control a stepper motor
       ONEWIRE_DATA             => 0x73, # OneWire read/write/reset/select/skip/search request + read/search reply
       SHIFT_DATA               => 0x75, # shiftOut config/data message (34 bits)
       I2C_REQUEST              => 0x76, # send an I2C read/write request

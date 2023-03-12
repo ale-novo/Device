@@ -9,6 +9,7 @@ Device::Firmata::Protocol - Firmata protocol implementation
 use strict;
 use warnings;
 use vars qw/ $MIDI_DATA_SIZES /;
+use POSIX;
 
 use constant {
   MIDI_COMMAND                => 0x80,
@@ -16,7 +17,7 @@ use constant {
   MIDI_PARSE_SYSEX            => 1,
   MIDI_START_SYSEX            => 0xf0,
   MIDI_END_SYSEX              => 0xf7,
-  MAX_PROTOCOL_VERSION        => 'V_2_05',  # highest Firmata protocol version currently implemented
+  MAX_PROTOCOL_VERSION        => 'V_2_06',  # highest Firmata protocol version currently implemented
 };
 
 use Device::Firmata::Constants qw/ :all /;
@@ -83,6 +84,38 @@ our $STEPPER_INTERFACES = {
   DRIVER                      => 1,
   TWO_WIRE                    => 2,
   FOUR_WIRE                   => 4,
+};
+
+our $ACCELSTEPPER_COMMANDS = {
+  STEPPER_CONFIG              => 0,
+  STEPPER_ZERO                => 1,
+  STEPPER_STEP                => 2,
+  STEPPER_TO                  => 3,
+  STEPPER_ENABLE              => 4,
+  STEPPER_STOP                => 5,
+  STEPPER_REPORT              => 6,
+  STEPPER_LIMIT               => 7,
+  STEPPER_ACCEL               => 8,
+  STEPPER_SPEED               => 9,
+  STEPPER_MOVE                => 0x0A,
+  STEPPER_MULTICONFIG         => 0x20,
+  STEPPER_MULTITO             => 0x21,
+  STEPPER_MULTISTOP           => 0x23,
+  STEPPER_MULTIMOVE           => 0x24,
+
+};
+
+our $ACCELSTEPPER_INTERFACES = {
+  DRIVER                      => 1,
+  TWO_WIRE                    => 2,
+  THREE_WIRE                  => 3,
+  FOUR_WIRE                   => 4,
+};
+
+our $ACCELSTEPPER_STEP = {
+  WHOLE                       => 0,
+  HALF                        => 1,
+  QUARTER                     => 2,
 };
 
 our $ENCODER_COMMANDS = {
@@ -327,6 +360,11 @@ sub sysex_parse {
 
         $command == $protocol_commands->{STEPPER_DATA} and do {
           $return_data = $self->handle_stepper_response($sysex_data);
+          last;
+        };
+
+        $command == $protocol_commands->{ACCELSTEPPER_DATA} and do {
+          $return_data = $self->handle_accelstepper_response($sysex_data);
           last;
         };
 
@@ -976,6 +1014,324 @@ sub handle_stepper_response {
   };
 }
 
+sub handle_accelstepper_response {
+  my ( $self, $sysex_data ) = @_;
+
+  my $command = shift @$sysex_data;
+  my $number = shift @$sysex_data;
+  my $position = 0;
+
+  if ( defined $command ) {
+    if ( $command == 10 ) {
+      my @data = unpack_from_7bit(@$sysex_data);
+      $position = decode32BitSignedInteger(@$sysex_data);
+      printf "Stepper %d move complete; Position: %d\n", $number, $position;
+    };
+
+    if ( $command == 6 ) {
+      my @data = unpack_from_7bit(@$sysex_data);
+      $position = decode32BitSignedInteger(@$sysex_data);
+      printf "Stepper %d report position; Position: %d\n", $number, $position;
+    };
+
+    if ( $command == 36 ) {
+      printf "MultiStepper %d move complete\n", $number;
+    };
+  };
+
+  return {
+    stepperNum => $number,
+    position => $position,
+  };
+}
+
+# AccelStepper
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $speed {number} speed Desired speed or maxSpeed in steps per second
+
+sub packet_accelstepper_speed {
+  my ( $self, $stepperNum, $speed ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_SPEED}, @stepdata, encodeCustomFloat($speed));
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $acceleration {number} acceleration Desired acceleration in steps per sec^2
+
+sub packet_accelstepper_accel {
+  my ( $self, $stepperNum, $acceleration ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ACCEL}, @stepdata, encodeCustomFloat($acceleration));
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $state {boolean} [enabled]
+
+sub packet_accelstepper_enable {
+  my ( $self, $stepperNum, $state ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum, $state);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ENABLE}, @stepdata);
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $numSteps {number} steps Number of steps to make
+
+sub packet_accelstepper_step {
+  my ( $self, $stepperNum, $numSteps ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STEP}, @stepdata, encode32BitSignedInteger($numSteps));
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+
+sub packet_accelstepper_zero {
+  my ( $self, $stepperNum ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_ZERO}, @stepdata);
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+# $position {number} position Desired position
+
+sub packet_accelstepper_to {
+  my ( $self, $stepperNum, $position ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_TO}, @stepdata, encode32BitSignedInteger($position));
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+
+sub packet_accelstepper_stop {
+  my ( $self, $stepperNum ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_STOP}, @stepdata);
+
+  return $packet;
+}
+
+# $stepperNum {number} deviceNum Device number for the stepper (range 0-9)
+
+sub packet_accelstepper_report {
+  my ( $self, $stepperNum ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  my @stepdata = ($stepperNum);
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_REPORT}, @stepdata);
+
+  return $packet;
+}
+
+# $groupNum {number} groupNum Group number for the multiSteppers (range 0-4)
+# @positions array {number} positions array of absolute stepper positions
+
+sub packet_multistepper_to {
+  my ( $self, $groupNum, @positions ) = @_;
+
+  my @groupdata = ($groupNum);
+  my @concat_pos;
+
+  if ($groupNum < 0 || $groupNum > 4) {
+    printf "Invalid groupNum: $groupNum Expected groupNum between 0-4\n";
+  }
+
+  if (@positions < 0 || @positions > 9) {
+    die "Invalid positions: @positions Expected positions number between 0-9\n";
+  }
+
+  #  ...positions.reduce((a, b) => a.concat(...encode32BitSignedInteger(b)), []),
+  foreach (@positions) {
+    push( @concat_pos,  encode32BitSignedInteger($_))
+  }
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTITO}, @groupdata, @concat_pos);
+
+  return $packet;
+}
+
+# $groupNum {number} groupNum Group number for the multiSteppers (range 0-4)
+
+sub packet_multistepper_stop {
+  my ( $self, $groupNum ) = @_;
+
+  my @groupdata = ($groupNum);
+
+  if ($groupNum < 0 || $groupNum > 4) {
+    die "Invalid groupNum: $groupNum Expected groupNum between 0-4\n";
+  }
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTISTOP}, @groupdata);
+
+  return $packet;
+}
+
+# $groupNum {number} groupNum: Group number for the multiSteppers (range 0-4)
+# @devices array {number} devices: array of accelStepper device numbers in group
+
+sub packet_multistepper_config {
+  my ( $self, $groupNum, @devices ) = @_;
+
+  my @groupdata = ($groupNum);
+
+  if ($groupNum < 0 || $groupNum > 4) {
+    die "Invalid groupNum: $groupNum Expected groupNum between 0-4\n";
+  }
+
+  if (@devices < 0 || @devices > 9) {
+    die "Invalid devices: @devices Expected devices number between 0-9\n";
+  }
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA', $ACCELSTEPPER_COMMANDS->{STEPPER_MULTICONFIG}, @groupdata, @devices);
+
+  return $packet;
+}
+
+# $stepperNum: stepper id: 0, 1, 2.. 9
+# $interface:
+#   'DRIVER': use $pin1: step, $pin2: dir.
+#   'TWO_WIRE': use $pin1, $pin2.
+#   'THREE_WIRE': use $pin1, $pin2, $pin3.
+#   'FOUR_WIRE': use $pin1, $pin2, $pin3, $pin4.
+# $step: 'WHOLE', 'HALF', 'QUARTER' steps.
+# $pin1, $pin2: mandatory.
+# $pin3, $pin4: optional depending $interface.
+# $enablePin: optional pin for driver with enable pin.
+# $invertPins: optional array with pins to invert.
+
+sub packet_accelstepper_config {
+  my ( $self, $stepperNum, $interface, $step, $pin1, $pin2, $pin3, $pin4, $enablePin, @invertPins ) = @_;
+
+  if ($stepperNum < 0 || $stepperNum > 9) {
+    die "Invalid stepperNum: $stepperNum Expected stepperNum between 0-9\n";
+  }
+
+  die "invalid accelstepper interface".$interface unless defined ($ACCELSTEPPER_INTERFACES->{$interface});
+
+  die "invalid accelstepper step".$step unless defined ($ACCELSTEPPER_STEP->{$step});
+
+  my $iface = (($ACCELSTEPPER_INTERFACES->{$interface} & 0x07) << 4) | (($ACCELSTEPPER_STEP->{$step} & 0x07) << 1) ;
+
+  if (defined $enablePin) {
+    $iface = $iface | 0x01;
+  }
+
+  my @configdata = ($stepperNum, $iface);
+
+  if (!defined $pin1) {
+    die "pin1 not defined\n";
+  }
+  push @configdata, $pin1;
+
+  if (!defined $pin2) {
+    die "pin1 not defined\n";
+  }
+  push @configdata, $pin2;
+
+  if (defined $pin3) {
+    push @configdata, $pin3;
+  }
+
+  if (defined $pin4) {
+    push @configdata, $pin4;
+  }
+
+  if (defined $enablePin) {
+    push @configdata, $enablePin;
+  }
+
+  my $pinsToInvert = 0x00;
+
+  if (@invertPins > 0) {
+
+    my %invert = map { $_ => 1 } @invertPins;
+
+    if(exists($invert{$pin1})) {
+      $pinsToInvert |= 0x01;
+    }
+
+    if(exists($invert{$pin2})) {
+      $pinsToInvert |= 0x02;
+    }
+
+    if((defined $pin3) && exists($invert{$pin3})) {
+      $pinsToInvert |= 0x04;
+    }
+
+    if((defined $pin4) && exists($invert{$pin4})) {
+      $pinsToInvert |= 0x08;
+    }
+
+    if((defined $enablePin) && exists($invert{$enablePin})) {
+      $pinsToInvert |= 0x10;
+    }
+  }
+
+  push @configdata, $pinsToInvert;
+
+  my $packet = $self->packet_sysex_command('ACCELSTEPPER_DATA',$ACCELSTEPPER_COMMANDS->{STEPPER_CONFIG}, @configdata);
+
+  return $packet;
+}
+
+###
 
 sub packet_encoder_attach {
   my ( $self,$encoderNum, $pinA, $pinB ) = @_;
@@ -1255,6 +1611,7 @@ sub push_array_as_two_7bit {
 }
 
 sub pack_as_7bit {
+  printf "pack_as_7bit\n";
   my @data = @_;
   my @outdata;
   my $numBytes    = @data;
@@ -1267,6 +1624,7 @@ sub pack_as_7bit {
     printf "%b, %b, %d\n",$data[$pos],$out,$shift if ($out >> 7 > 0);
     $out |= ( $data[ $pos + 1 ] << ( 8 - $shift ) ) & 0x7F if ( $shift > 1 && $pos < $numBytes-1 );
     push( @outdata, $out );
+    printf "push outdata @outdata out $out\n";
   }
   return @outdata;
 }
@@ -1286,6 +1644,92 @@ sub unpack_from_7bit {
   }
   return @outdata;
 }
+
+sub encode32BitSignedInteger {
+  my ( $data ) = @_;
+  my @outdata;
+
+  my $abs_data = abs($data);
+
+  push( @outdata, ($abs_data & 0x7F));
+  push( @outdata, (($abs_data >> 7) & 0x7F));
+  push( @outdata, (($abs_data >> 14) & 0x7F));
+  push( @outdata, (($abs_data >> 21) & 0x7F));
+  push( @outdata, (($abs_data >> 28) & 0x07));
+
+  if ( $data < 0 ) {
+    $outdata[-1] |= 0x08;
+  };
+
+  return @outdata;
+
+};
+
+sub decode32BitSignedInteger {
+  my @data = @_;
+
+  my $result = ($data[0] & 0x7F) |
+    (($data[1] & 0x7F) << 7) |
+    (($data[2] & 0x7F) << 14) |
+    (($data[3] & 0x7F) << 21) |
+    (($data[4] & 0x07) << 28);
+
+
+  if ($data[4] >> 3) {
+    $result *= -1;
+  }
+
+  return $result;
+};
+
+sub encodeCustomFloat {
+  my ( $data ) = @_;
+  my $sign = 0;
+  my $MAX_SIGNIFICAND = (2**23);
+  my @encoded;
+
+  if ( $data < 0 ) {
+    $sign = 1;
+  };
+
+  if ( $data != 0 ) {
+
+    my $abs_data = abs($data);
+
+    my $base10 = floor(log($abs_data)/log(10));
+
+    my $exponent = 0 + $base10;
+
+    $abs_data /= (10**$base10);
+
+    while ( $abs_data =~ /^\d*\.\d*$/ && $abs_data < $MAX_SIGNIFICAND) {
+      $exponent -= 1;
+      $abs_data *= 10;
+    };
+
+    while ( $abs_data > $MAX_SIGNIFICAND) {
+      $exponent += 1;
+      $abs_data /= 10;
+    };
+
+    my $int_data = int($abs_data);
+
+    $exponent += 11;
+
+    push( @encoded, ($int_data & 0x7F));
+    push( @encoded, (($int_data >> 7) & 0x7F));
+    push( @encoded, (($int_data >> 14) & 0x7F));
+    push ( @encoded, ( ($int_data >> 21) & 0x03 | ($exponent & 0x0F) << 2 | ($sign & 0x01) << 6 ) );
+
+  };
+
+  if ($data == 0 ) {
+    push ( @encoded, (0,0,0,0));
+  };
+
+  return @encoded;
+
+};
 
 =head2 get_max_compatible_protocol_version
 
