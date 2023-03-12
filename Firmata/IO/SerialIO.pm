@@ -14,7 +14,7 @@ use Device::Firmata::Base
     ISA => 'Device::Firmata::Base',
     FIRMATA_ATTRIBS => {
         handle   => undef,
-        baudrate => 57600,
+        baudrate => 115200,
     };
 
 $SERIAL_CLASS = $^O eq 'MSWin32' ? 'Win32::SerialPort'
